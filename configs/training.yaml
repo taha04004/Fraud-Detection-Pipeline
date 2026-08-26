@@ -1,0 +1,20 @@
+seed: 42
+data:
+  train_path: data/processed/train.parquet
+  validation_path: data/processed/validation.parquet
+  test_path: data/processed/test.parquet
+model:
+  hidden_sizes: [128, 64, 32]
+  dropout: 0.2
+training:
+  batch_size: 512
+  epochs: 50
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  early_stopping_patience: 7
+evaluation:
+  threshold_metric: f1
+mlflow:
+  tracking_uri: http://localhost:5000
+  experiment_name: fraud-detection
+
