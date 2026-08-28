@@ -3,7 +3,7 @@
 import csv
 from pathlib import Path
 
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType
 
@@ -56,6 +56,31 @@ def validate_csv_header(input_path: Path) -> None:
             "Column order must match the expected schema."
         )
 
+def split_by_time(
+    frame: DataFrame,
+) -> tuple[DataFrame, DataFrame, DataFrame]:
+    """Split transactions chronologically into train, validation, and test sets."""
+
+    train_boundary, validation_boundary = frame.approxQuantile(
+        "Time",
+        [0.70, 0.85],
+        0.001,
+    )
+
+    train = frame.filter(
+        F.col("Time") <= train_boundary
+    )
+
+    validation = frame.filter(
+        (F.col("Time") > train_boundary)
+        & (F.col("Time") <= validation_boundary)
+    )
+
+    test = frame.filter(
+        F.col("Time") > validation_boundary
+    )
+
+    return train, validation, test
 
 def run(input_path: Path, output_dir: Path) -> None:
     """Validate, transform, and write transaction data using Spark."""
@@ -93,13 +118,24 @@ def run(input_path: Path, output_dir: Path) -> None:
             )
         )
 
+        train, validation, test = split_by_time(processed)
+
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        (
-            processed.write
-            .mode("overwrite")
-            .parquet(str(output_dir))
-        )
+        datasets = {
+            "train": train,
+            "validation": validation,
+            "test": test,
+        }
+
+        for dataset_name, dataset in datasets.items():
+            dataset_path = output_dir / f"{dataset_name}.parquet"
+
+            (
+                dataset.write
+                .mode("overwrite")
+                .parquet(str(dataset_path))
+            )
     finally:
         spark.stop()
 
