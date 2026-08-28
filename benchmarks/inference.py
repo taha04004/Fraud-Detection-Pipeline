@@ -1,6 +1,7 @@
 """Benchmark FastAPI fraud-prediction latency."""
 
 import json
+import os
 from pathlib import Path
 from time import perf_counter
 
@@ -12,7 +13,16 @@ from src.data.validate import FEATURE_COLUMNS
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = PROJECT_ROOT / "data" / "raw" / "creditcard.csv"
-RESULTS_PATH = PROJECT_ROOT / "benchmarks" / "inference_results.json"
+ENVIRONMENT = os.getenv(
+    "BENCHMARK_ENVIRONMENT",
+    "local",
+)
+
+RESULTS_PATH = (
+    PROJECT_ROOT
+    / "benchmarks"
+    / f"inference_{ENVIRONMENT}_results.json"
+)
 
 API_URL = "http://127.0.0.1:8000"
 WARMUP_REQUESTS = 20
@@ -90,6 +100,7 @@ def main() -> None:
 
     results = {
         "api_url": API_URL,
+        "environment": ENVIRONMENT,
         "warmup_requests": WARMUP_REQUESTS,
         "measured_requests": MEASURED_REQUESTS,
         "request_mode": "sequential",

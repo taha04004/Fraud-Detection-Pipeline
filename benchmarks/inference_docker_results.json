@@ -1,0 +1,15 @@
+{
+  "api_url": "http://127.0.0.1:8000",
+  "environment": "docker",
+  "warmup_requests": 20,
+  "measured_requests": 200,
+  "request_mode": "sequential",
+  "mean_latency_ms": 3.5046840002542012,
+  "median_latency_ms": 3.4103500001947396,
+  "p95_latency_ms": 4.219365000608377,
+  "p99_latency_ms": 4.6322980034165075,
+  "minimum_latency_ms": 2.799800000502728,
+  "maximum_latency_ms": 5.457799998112023,
+  "throughput_requests_per_second": 285.3324293795013,
+  "sub_100_ms_p95": true
+}
