@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import torch
 import yaml
+from mlflow import pytorch as mlflow_pytorch
 from sklearn.metrics import (
     average_precision_score,
     f1_score,
@@ -491,6 +492,23 @@ def train(config_path: Path) -> None:
         str(metrics_path),
         artifact_path="evaluation",
     )
+
+    # Register the trained PyTorch model with MLflow.
+    registered_model_name = mlflow_config[
+        "registered_model_name"
+    ]
+
+    model.eval()
+
+    model_info = mlflow_pytorch.log_model(
+        pytorch_model=model,
+        name="pytorch-model",
+        registered_model_name=registered_model_name,
+        input_example=train_features[:1],
+    )
+
+    print(f"Registered model: {registered_model_name}")
+    print(f"Model URI: {model_info.model_uri}")
 
     active_run = mlflow.active_run()
 
