@@ -5,6 +5,7 @@ import random
 from copy import deepcopy
 from pathlib import Path
 
+import mlflow
 import numpy as np
 import pandas as pd
 import torch
@@ -179,6 +180,19 @@ def train(config_path: Path) -> None:
     seed = int(config["seed"])
     set_random_seeds(seed)
 
+    mlflow_config = config["mlflow"]
+
+    mlflow.set_tracking_uri(
+        mlflow_config["tracking_uri"]
+    )
+    mlflow.set_experiment(
+        mlflow_config["experiment_name"]
+    )
+
+    mlflow.start_run(
+        run_name="pytorch-fraud-classifier"
+    )
+
     feature_columns = list(config["features"]["columns"])
     batch_size = int(config["training"]["batch_size"])
     epochs = int(config["training"]["epochs"])
@@ -265,6 +279,30 @@ def train(config_path: Path) -> None:
 
     positive_weight = legitimate_count / fraud_count
 
+    mlflow.log_params(
+        {
+            "seed": seed,
+            "feature_count": len(feature_columns),
+            "batch_size": batch_size,
+            "maximum_epochs": epochs,
+            "learning_rate": learning_rate,
+            "weight_decay": weight_decay,
+            "early_stopping_patience": patience,
+            "dropout": dropout,
+            "positive_class_weight": positive_weight,
+            "training_rows": len(train_targets),
+            "validation_rows": len(validation_targets),
+            "test_rows": len(test_targets),
+            "training_fraud_cases": int(fraud_count),
+            "device": str(device),
+        }
+    )
+
+    mlflow.log_dict(
+        config,
+        "training_config.json",
+    )    
+
     loss_function = nn.BCEWithLogitsLoss(
         pos_weight=torch.tensor(
             positive_weight,
@@ -318,6 +356,15 @@ def train(config_path: Path) -> None:
             f"Epoch {epoch:02d} | "
             f"loss={average_loss:.6f} | "
             f"validation_pr_auc={validation_pr_auc:.6f}"
+        )
+        mlflow.log_metrics(
+            {
+                "training_loss": float(average_loss),
+                "validation_pr_auc": float(
+                    validation_pr_auc
+                ),
+            },
+            step=epoch,
         )
 
         if validation_pr_auc > best_pr_auc:
@@ -411,6 +458,52 @@ def train(config_path: Path) -> None:
         json.dumps(metrics, indent=2),
         encoding="utf-8",
     )
+
+    mlflow.log_param(
+        "selected_threshold",
+        threshold,
+    )
+
+    mlflow.log_metrics(
+        {
+            **{
+                f"validation_{name}": value
+                for name, value
+                in validation_metrics.items()
+            },
+            **{
+                f"test_{name}": value
+                for name, value
+                in test_metrics.items()
+            },
+        }
+    )
+
+    mlflow.log_artifact(
+        str(model_path),
+        artifact_path="model",
+    )
+    mlflow.log_artifact(
+        str(preprocessor_path),
+        artifact_path="model",
+    )
+    mlflow.log_artifact(
+        str(metrics_path),
+        artifact_path="evaluation",
+    )
+
+    active_run = mlflow.active_run()
+
+    if active_run is None:
+        raise RuntimeError(
+            "MLflow run ended unexpectedly"
+        )
+
+    run_id = active_run.info.run_id
+
+    mlflow.end_run()
+
+    print(f"MLflow run ID: {run_id}")
 
     print(f"Selected threshold: {threshold:.4f}")
     print(

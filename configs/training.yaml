@@ -52,3 +52,7 @@ artifacts:
   model_path: artifacts/model.pt
   preprocessor_path: artifacts/preprocessor.json
   metrics_path: artifacts/metrics.json
+
+mlflow:
+  tracking_uri: http://127.0.0.1:5000
+  experiment_name: fraud-detection
