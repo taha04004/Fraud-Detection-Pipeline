@@ -1,3 +1,6 @@
+import json
+from unittest.mock import Mock
+
 import numpy as np
 import torch
 from fastapi.testclient import TestClient
@@ -132,3 +135,42 @@ def test_predict_rejects_negative_amount(
         response.json()["detail"]
         == "Transaction amount cannot be negative"
     )
+
+def test_predict_writes_privacy_safe_log(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    bundle = create_test_bundle()
+    log_info = Mock()
+
+    monkeypatch.setattr(
+        main,
+        "get_model_bundle",
+        lambda: bundle,
+    )
+    monkeypatch.setattr(
+        main.LOGGER,
+        "info",
+        log_info,
+    )
+
+    response = client.post(
+        "/predict",
+        json={
+            "features": [0.0] * 30,
+        },
+    )
+
+    assert response.status_code == 200
+    log_info.assert_called_once()
+
+    log_record = json.loads(
+        log_info.call_args.args[0]
+    )
+
+    assert log_record["event"] == "fraud_prediction"
+    assert log_record["model_version"] == "test-version"
+    assert log_record["fraud_probability"] == 0.5
+    assert log_record["is_fraud"] is False
+    assert log_record["latency_ms"] >= 0
+    assert isinstance(log_record["timestamp"], str)
+    assert "features" not in log_record

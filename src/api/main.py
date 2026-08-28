@@ -1,6 +1,10 @@
 """FastAPI application for online fraud inference."""
 
+import json
+import logging
+from datetime import UTC, datetime
 from functools import lru_cache
+from time import perf_counter
 
 from fastapi import FastAPI, HTTPException
 
@@ -13,6 +17,8 @@ from src.api.schemas import (
     PredictionRequest,
     PredictionResponse,
 )
+
+LOGGER = logging.getLogger("uvicorn.error")
 
 app = FastAPI(
     title="Fraud Detection API",
@@ -61,6 +67,8 @@ def predict(
 ) -> PredictionResponse:
     """Return a fraud prediction for one transaction."""
 
+    started_at = perf_counter()
+
     try:
         bundle = get_model_bundle()
         probability = predict_transaction(
@@ -78,9 +86,25 @@ def predict(
             detail=str(error),
         ) from error
 
+    is_fraud = probability >= bundle.threshold
+    latency_ms = (perf_counter() - started_at) * 1000
+
+    LOGGER.info(
+        json.dumps(
+            {
+                "event": "fraud_prediction",
+                "timestamp": datetime.now(UTC).isoformat(),
+                "model_version": bundle.version,
+                "latency_ms": round(latency_ms, 3),
+                "fraud_probability": round(probability, 6),
+                "is_fraud": is_fraud,
+            }
+        )
+    )
+
     return PredictionResponse(
         fraud_probability=probability,
-        is_fraud=probability >= bundle.threshold,
+        is_fraud=is_fraud,
         threshold=bundle.threshold,
         model_version=bundle.version,
     )
