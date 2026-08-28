@@ -7,7 +7,8 @@ import torch
 from pytest import MonkeyPatch
 
 from src.api.model_loader import ModelBundle
-from src.models import evaluate
+from src.data.validate import FEATURE_COLUMNS
+from src.models import evaluate, predict
 from src.models.network import FraudClassifier
 
 MODEL_FEATURE_COLUMNS = [
@@ -124,3 +125,85 @@ def test_evaluate_rejects_missing_features(
             ),
             output_path=tmp_path / "evaluation.json",
         )
+
+def test_predict_csv(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    bundle = create_test_bundle()
+
+    monkeypatch.setattr(
+        predict,
+        "load_model",
+        lambda **_: bundle,
+    )
+
+    frame = pd.DataFrame(
+        np.zeros(
+            (3, len(FEATURE_COLUMNS)),
+            dtype=np.float32,
+        ),
+        columns=FEATURE_COLUMNS,
+    )
+
+    input_path = tmp_path / "transactions.csv"
+    output_path = tmp_path / "predictions.csv"
+    frame.to_csv(input_path, index=False)
+
+    predictions = predict.predict_csv(
+        input_path=input_path,
+        output_path=output_path,
+        model_path=tmp_path / "model.pt",
+        preprocessor_path=(
+            tmp_path / "preprocessor.json"
+        ),
+        batch_size=2,
+    )
+
+    assert len(predictions) == 3
+    assert output_path.exists()
+    assert np.allclose(
+        predictions["fraud_probability"],
+        0.5,
+    )
+    assert predictions["is_fraud"].tolist() == [
+        False,
+        False,
+        False,
+    ]
+    assert predictions["model_version"].tolist() == [
+        "test-version",
+        "test-version",
+        "test-version",
+    ]
+
+
+def test_predict_csv_rejects_negative_amount(
+    tmp_path: Path,
+) -> None:
+    frame = pd.DataFrame(
+        np.zeros(
+            (1, len(FEATURE_COLUMNS)),
+            dtype=np.float32,
+        ),
+        columns=FEATURE_COLUMNS,
+    )
+    frame.loc[0, "Amount"] = -1.0
+
+    input_path = tmp_path / "invalid.csv"
+    frame.to_csv(input_path, index=False)
+
+    with pytest.raises(
+        ValueError,
+        match="negative amounts",
+    ):
+        predict.predict_csv(
+            input_path=input_path,
+            output_path=tmp_path / "predictions.csv",
+            model_path=tmp_path / "model.pt",
+            preprocessor_path=(
+                tmp_path / "preprocessor.json"
+            ),
+            batch_size=2,
+        )
+
