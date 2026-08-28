@@ -442,7 +442,7 @@ def train(config_path: Path) -> None:
         "mean": scaler.mean_.tolist(),
         "scale": scaler.scale_.tolist(),
         "threshold": threshold,
-        "model_version": "1",
+        "model_version": "pending",
     }
 
     preprocessor_path.write_text(
@@ -507,9 +507,31 @@ def train(config_path: Path) -> None:
         input_example=train_features[:1],
     )
 
-    print(f"Registered model: {registered_model_name}")
-    print(f"Model URI: {model_info.model_uri}")
+    registered_version = model_info.registered_model_version
 
+    if registered_version is None:
+        raise RuntimeError(
+            "MLflow did not return a registered model version"
+        )
+
+    preprocessor["model_version"] = str(
+        registered_version
+    )
+    preprocessor["mlflow_run_id"] = model_info.run_id
+
+    preprocessor_path.write_text(
+        json.dumps(preprocessor, indent=2),
+        encoding="utf-8",
+    )
+
+    mlflow.log_artifact(
+        str(preprocessor_path),
+        artifact_path="model",
+    )
+
+    print(f"Registered model: {registered_model_name}")
+    print(f"Registered version: {registered_version}")
+    print(f"Model URI: {model_info.model_uri}")    
     active_run = mlflow.active_run()
 
     if active_run is None:
