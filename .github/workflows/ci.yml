@@ -37,15 +37,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev]"
+
       # MLflow 3.15.1 requires cryptography<50.
       # Remove this exception when MLflow supports cryptography 50+.
       - name: Audit Python dependencies
         run: >
           python -m pip_audit
           --ignore-vuln PYSEC-2026-3552
-          
-      - name: Install dependencies
-        run: python -m pip install -e ".[dev]"
 
       - name: Run Ruff
         run: python -m ruff check .
