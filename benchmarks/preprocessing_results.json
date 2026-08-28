@@ -1,0 +1,8 @@
+{
+  "dataset": "data\\raw\\creditcard.csv",
+  "pandas_seconds": 3.719374299995252,
+  "spark_seconds": 41.0138092000052,
+  "spark_to_pandas_ratio": 11.027072268595703,
+  "comparison_note": "Pandas writes one transformed dataset. PySpark additionally performs chronological splitting and writes train, validation, and test datasets. The Spark measurement also includes Docker and JVM startup.",
+  "python_version": "3.12.7 (tags/v3.12.7:0b05ead, Oct  1 2024, 03:06:41) [MSC v.1941 64 bit (AMD64)]"
+}

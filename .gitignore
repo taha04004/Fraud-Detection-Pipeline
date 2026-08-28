@@ -21,3 +21,4 @@ artifacts/*
 mlruns/
 mlartifacts/
 mlflow.db
+benchmarks/.tmp/
