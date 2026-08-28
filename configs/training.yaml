@@ -1,20 +1,54 @@
 seed: 42
+
 data:
-  train_path: data/processed/train.parquet
-  validation_path: data/processed/validation.parquet
-  test_path: data/processed/test.parquet
+  train_path: data/processed/spark/train.parquet
+  validation_path: data/processed/spark/validation.parquet
+  test_path: data/processed/spark/test.parquet
+
+features:
+  columns:
+    - V1
+    - V2
+    - V3
+    - V4
+    - V5
+    - V6
+    - V7
+    - V8
+    - V9
+    - V10
+    - V11
+    - V12
+    - V13
+    - V14
+    - V15
+    - V16
+    - V17
+    - V18
+    - V19
+    - V20
+    - V21
+    - V22
+    - V23
+    - V24
+    - V25
+    - V26
+    - V27
+    - V28
+    - AmountLog
+    - Hour
+
 model:
-  hidden_sizes: [128, 64, 32]
   dropout: 0.2
+
 training:
-  batch_size: 512
-  epochs: 50
+  batch_size: 1024
+  epochs: 15
   learning_rate: 0.001
   weight_decay: 0.0001
-  early_stopping_patience: 7
-evaluation:
-  threshold_metric: f1
-mlflow:
-  tracking_uri: http://localhost:5000
-  experiment_name: fraud-detection
+  early_stopping_patience: 4
 
+artifacts:
+  model_path: artifacts/model.pt
+  preprocessor_path: artifacts/preprocessor.json
+  metrics_path: artifacts/metrics.json
