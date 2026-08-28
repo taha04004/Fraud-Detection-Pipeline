@@ -1,0 +1,14 @@
+{
+  "api_url": "http://127.0.0.1:8000",
+  "warmup_requests": 20,
+  "measured_requests": 200,
+  "request_mode": "sequential",
+  "mean_latency_ms": 2.521324000263121,
+  "median_latency_ms": 2.4376500005018897,
+  "p95_latency_ms": 3.2898599980399013,
+  "p99_latency_ms": 4.151919003270449,
+  "minimum_latency_ms": 1.8650999991223216,
+  "maximum_latency_ms": 4.23110000701854,
+  "throughput_requests_per_second": 396.6170154631621,
+  "sub_100_ms_p95": true
+}
