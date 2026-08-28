@@ -13,6 +13,7 @@ from src.data.spark_etl import (
     TRANSACTION_SCHEMA,
     split_by_time,
     validate_csv_header,
+    validate_transaction_data,
 )
 from src.features.transformations import add_features
 
@@ -163,3 +164,57 @@ def test_split_by_time_is_complete_and_non_overlapping(
 
     assert max(train_times) < min(validation_times)
     assert max(validation_times) < min(test_times)
+
+def test_validate_transaction_data_accepts_valid_rows(
+    spark: SparkSession,
+) -> None:
+    frame = spark.sql(
+        """
+        SELECT
+            1.0 AS Time,
+            10.0 AS Amount,
+            0 AS Class
+        UNION ALL
+        SELECT
+            2.0 AS Time,
+            25.0 AS Amount,
+            1 AS Class
+        """
+    )
+
+    validate_transaction_data(frame)
+
+
+def test_validate_transaction_data_rejects_invalid_rows(
+    spark: SparkSession,
+) -> None:
+    frame = spark.sql(
+        """
+        SELECT
+            1.0 AS Time,
+            10.0 AS Amount,
+            0 AS Class
+        UNION ALL
+        SELECT
+            2.0 AS Time,
+            -5.0 AS Amount,
+            2 AS Class
+        UNION ALL
+        SELECT
+            CAST(NULL AS DOUBLE) AS Time,
+            20.0 AS Amount,
+            1 AS Class
+        """
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Transaction data validation failed",
+    ) as error:
+        validate_transaction_data(frame)
+
+    message = str(error.value)
+
+    assert "1 rows contain null values" in message
+    assert "1 rows contain invalid targets" in message
+    assert "1 rows contain negative amounts" in message

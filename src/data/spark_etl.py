@@ -1,6 +1,7 @@
 """PySpark ETL pipeline for transaction data."""
 
 import csv
+from functools import reduce
 from pathlib import Path
 
 from pyspark.sql import DataFrame, SparkSession
@@ -56,6 +57,80 @@ def validate_csv_header(input_path: Path) -> None:
             "Column order must match the expected schema."
         )
 
+def validate_transaction_data(frame: DataFrame) -> None:
+    """Raise an error when transaction rows violate data-quality rules."""
+
+    has_null = reduce(
+        lambda left, right: left | right,
+        [
+            F.col(column).isNull()
+            for column in frame.columns
+        ],
+    )
+
+    summary = (
+        frame
+        .agg(
+            F.count("*").alias("row_count"),
+            F.sum(
+                F.when(has_null, 1).otherwise(0)
+            ).alias("null_rows"),
+            F.sum(
+                F.when(
+                    ~F.col(TARGET_COLUMN).isin(0, 1),
+                    1,
+                ).otherwise(0)
+            ).alias("invalid_target_rows"),
+            F.sum(
+                F.when(
+                    F.col("Amount") < 0,
+                    1,
+                ).otherwise(0)
+            ).alias("negative_amount_rows"),
+        )
+        .first()
+    )
+
+    if summary is None:
+        raise RuntimeError(
+            "Spark did not return a data-quality summary"
+        )
+
+    row_count = int(summary["row_count"])
+    null_rows = int(summary["null_rows"] or 0)
+    invalid_target_rows = int(
+        summary["invalid_target_rows"] or 0
+    )
+    negative_amount_rows = int(
+        summary["negative_amount_rows"] or 0
+    )
+
+    errors: list[str] = []
+
+    if row_count == 0:
+        errors.append("dataset contains no transaction rows")
+
+    if null_rows:
+        errors.append(
+            f"{null_rows} rows contain null values"
+        )
+
+    if invalid_target_rows:
+        errors.append(
+            f"{invalid_target_rows} rows contain invalid targets"
+        )
+
+    if negative_amount_rows:
+        errors.append(
+            f"{negative_amount_rows} rows contain negative amounts"
+        )
+
+    if errors:
+        raise ValueError(
+            "Transaction data validation failed: "
+            + "; ".join(errors)
+        )
+
 def split_by_time(
     frame: DataFrame,
 ) -> tuple[DataFrame, DataFrame, DataFrame]:
@@ -106,12 +181,15 @@ def run(input_path: Path, output_dir: Path) -> None:
             .csv(str(input_path))
         )
 
+        validate_transaction_data(frame)
+
         processed = (
             frame
             .dropDuplicates()
-            .dropna()
-            .filter(F.col("Amount") >= 0)
-            .withColumn("AmountLog", F.log1p(F.col("Amount")))
+            .withColumn(
+                "AmountLog",
+                F.log1p(F.col("Amount")),
+            )
             .withColumn(
                 "Hour",
                 ((F.col("Time") / 3600) % 24).cast("double"),
