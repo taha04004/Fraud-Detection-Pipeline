@@ -23,7 +23,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["mypy>=1.13", "pytest>=8.3", "pytest-cov>=6.0", "ruff>=0.8"]
+dev = [
+  "mypy>=1.13",
+  "pip-audit>=2.9",
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "ruff>=0.8",
+]
+
 
 [tool.setuptools.packages.find]
 include = ["src*"]
